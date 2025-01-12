@@ -1,27 +1,27 @@
-import requests
+import http.client
 import json
 from math import sqrt
 
 def catch_products(cateid, max_pages=None):
-    base_url = "https://ecshweb.pchome.com.tw/search/v4.3/all/results"
+    base_url = "ecshweb.pchome.com.tw"
+    endpoint = "/search/v4.3/all/results"
     all_products = []
     page = 1
     
     while True:
-        params = {
-            "cateid": cateid,
-            "attr": "",
-            "pageCount": 40,
-            "page": page
-        }
+        params = f"cateid={cateid}&attr=&pageCount=40&page={page}"
+        url = f"{endpoint}?{params}"
         
-        response = requests.get(base_url, params=params)
+        connection = http.client.HTTPSConnection(base_url)
+
+        connection.request("GET", url)
+        response = connection.getresponse()
         
-        if response.status_code != 200:
-            print(f"Failed to catch page {page}. Status code: {response.status_code}")
+        if response.status != 200:
+            print(f"Failed to catch page {page}. Status code: {response.status}")
             break
         
-        data = response.json()
+        data = json.loads(response.read().decode("utf-8"))
         products = data.get("Prods", [])
         all_products.extend(products)
         
