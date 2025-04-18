@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>短文本分類預測</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>短文本分類預測系統</h1>
+
+  <!-- 輸入區 -->
+  <div class="input-block">
+    <input id="titleInput" placeholder="請輸入文章標題" />
+    <button id="predictBtn">預測分類</button>
+  </div>
+
+  <!-- 結果區（預測後顯示） -->
+  <div id="resultBlock" class="hidden">
+    <p>🔍 預測結果：<span id="predLabel"></span></p>
+    <p>請確認此分類是否正確：</p>
+    <div id="suggestBtns">
+      <button class="confirm" data-user-label="">符合預測</button>
+      {% for label in labels %}
+        <button class="suggest" data-user-label="{{ label }}">{{ label }}（{{ label_chinese[label] }}）</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- JS區塊 -->
+  <script>
+    const titleInput = document.getElementById('titleInput');
+    const predictBtn = document.getElementById('predictBtn');
+    const resultBlock = document.getElementById('resultBlock');
+    const predLabelSpan = document.getElementById('predLabel');
+
+    let currentPrediction = {
+      model_label: "",
+      confidence: 0
+    };
+
+    predictBtn.onclick = async () => {
+      const title = titleInput.value.trim();
+      if (!title) return alert('請輸入標題');
+
+      const res = await fetch(`/api/model/prediction?title=${encodeURIComponent(title)}`);
+      const data = await res.json();
+
+      predLabelSpan.textContent = `${data.label}（${data.label_chinese}）`;
+      predLabelSpan.dataset.modelLabel = data.label;
+      predLabelSpan.dataset.confidence = data.confidence;
+
+      currentPrediction.model_label = data.label;
+      currentPrediction.confidence = data.confidence;
+
+      resultBlock.classList.remove('hidden');
+    };
+
+    // 「符合預測」按鈕
+    document.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('confirm')) {
+        const title = titleInput.value.trim();
+        const modelLabel = currentPrediction.model_label;
+        const confidence = currentPrediction.confidence;
+
+        await fetch('/api/model/feedback', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: new URLSearchParams({title, model_label: modelLabel, confidence})
+        });
+        alert('感謝您的回饋！');
+        resetPage();
+      }
+
+      // 更正分類
+      if (e.target.classList.contains('suggest')) {
+        const title = titleInput.value.trim();
+        const modelLabel = currentPrediction.model_label;
+        const confidence = currentPrediction.confidence;
+        const userLabel = e.target.dataset.userLabel;
+
+        await fetch('/api/model/feedback', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: new URLSearchParams({title, model_label: modelLabel, confidence, user_label: userLabel})
+        });
+        alert('📬 回饋已送出 :D');
+        resetPage();
+      }
+    });
+
+    function resetPage() {
+      titleInput.value = "";
+      resultBlock.classList.add("hidden");
+      predLabelSpan.textContent = "";
+    }
+  </script>
+</body>
+</html>
+
+
